@@ -48,3 +48,14 @@ end
 gem "byebug"
 gem "active_model_serializers"
 gem "rubocop"
+gem 'jwt'
+gem 'bcrypt'
+gem 'geocoder'
+gem 'jsonapi-serializer'
+gem 'kaminari'
+gem 'phonelib'
+gem "activeadmin"
+gem 'activeadmin_addons'
+gem 'activeadmin_quill_editor'
+gem 'acts_as_paranoid'
+gem 'arctic_admin'
