@@ -12,6 +12,7 @@ class CreateAccounts < ActiveRecord::Migration[7.1]
       t.integer :role, default: 0
       t.integer :status, default: 0
       t.string :password_digest
+      t.boolean :is_otp_verify, default: false
 
       t.timestamps
     end
