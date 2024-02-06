@@ -22,3 +22,4 @@ Things you may want to cover:
 * Deployment instructions
 
 * ...
+Postman Collection :- https://api.postman.com/collections/27792299-b78d89d0-ec2f-42dc-98e8-305a93425a1c?access_key=PMAT-01HNZXJXB7DTKE04EDZBDSKFN1

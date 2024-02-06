@@ -1,7 +1,7 @@
 class V1::AccountsController < ApplicationController
-  # before_action :authentication, only: [:login]
-  before_action :get_account, only: [:login]
-  before_action :find_token, only: %i[otp_verify]
+  before_action :authentication, only: [:update, change_password]
+  before_action :get_account, only: [:login, :forgot_password]
+  before_action :find_token, only: [:otp_verify, :resend_otp, :account_verify]
 
   def signup
     @account = Account.new(account_params)
@@ -13,7 +13,7 @@ class V1::AccountsController < ApplicationController
   end
 
   def login
-    if @current_user.authenticate(params[:password])
+    if @account.authenticate(params[:password])
       render json: { message: "Successfully Login" }
     else
       render json: { errors: "invalid password" }, status: :unauthorized
@@ -36,14 +36,63 @@ class V1::AccountsController < ApplicationController
     not_found
   end
 
+  def forgot_password
+    send_otp
+  end
+
+  def resend_otp
+    otp_id = @decode_account[0]['id']
+    @account = SmsOtp.find(otp_id)
+    send_otp
+  rescue StandardError
+    not_found
+  end
+
+  def account_verify
+    account_id = @decode_account[0]['account_data']
+    @account = Account.find(account_id)
+    return render json: { errors: confirm_password } unless confirm_password.nil?
+
+    update_password
+  rescue StandardError
+    not_found
+  end
+
+  def change_password
+    return render json: { errors: confirm_password } unless confirm_password.nil?
+
+    if @account.authenticate(params[:old_password])
+      update_password
+    else
+      invalid_password_error
+    end
+  end
+
+  def update
+    if @account.authenticate(params[:account][:password])
+      if @account.update(update_params)
+        render json: V1::AccountSerializer.new(@account, serialize_params).serializable_hash,
+               status: :ok
+      else
+        error_response(@account)
+      end
+    else
+      invalid_password_error
+    end
+  end
+
   private
 
   def account_params
     params.require(:account).permit(:mobile_number, :password_digest, :password_confirmation)
   end
 
+  def update_params
+    params.require(:account).permit(:full_name, :mobile_number, :age, :gender, :dob, :city, :address, :pincode, :profile_pic)
+  end
+
   def encode(id)
-    encode_account_data({ user_account: id })
+    encode_account_data({ account_data: id })
   end
 
   def success_response(data)
@@ -59,8 +108,8 @@ class V1::AccountsController < ApplicationController
   end
 
   def get_account
-    @current_user = Account.find_by(mobile_number: params[:mobile_number])
-    return not_found unless @current_user.present?
+    @account = Account.find_by(mobile_number: params[:mobile_number])
+    return not_found unless @account.present?
   end
 
   def send_otp
@@ -75,74 +124,18 @@ class V1::AccountsController < ApplicationController
 
     render json: { message: "Invalid Token" }, status: :unprocessable_entity
   end
+
+  def confirm_password
+    return 'You can not enter old password again' if @account.authenticate(params[:new_password])
+
+    'Both Passwords Does Not Match' if params[:new_password] != params[:confirm_password]
+  end
+
+  def update_password
+    if @account.update(password: params[:new_password])
+      render json: { message: 'Password Update Successfully' }, status: :ok
+    else
+      error_response(@account)
+    end
+  end
 end
-
-#     class UsersController < ApplicationController
-#       before_action :authentication, only: %i[reset_password update]
-#       before_action :find_token, only: %i[otp_verify user_verify resend_otp]
-
-#       before_action :find_user, only: %i[login forgot_password]     
-
-#       def forgot_password
-#         send_otp
-#       end
-
-#       def user_verify
-#         user_id = @decode_data[0]['user_data']
-#         @user = User.find(user_id)
-#         return render json: { errors: confirm_password } unless confirm_password.nil?
-
-#         update_password
-#       rescue StandardError
-#         record_not_found
-#       end
-
-#       def reset_password
-#         @user = current_user
-#         return render json: { errors: confirm_password } unless confirm_password.nil?
-
-#         if @user.authenticate(params[:old_password])
-#           update_password
-#         else
-#           invalid_password_error
-#         end
-#       end
-
-#       def resend_otp
-#         otp_id = @decode_data[0]['id']
-#         @user = EmailOtp.find(otp_id)
-#         send_otp
-#       rescue StandardError
-#         record_not_found
-#       end
-
-#       def update
-#         if current_user.authenticate(params[:user][:password])
-#           if current_user.update(user_params)
-#             render json: V1::Customer::UserSerializer.new(current_user, serialize_params).serializable_hash,
-#                    status: :ok
-#           else
-#             error_response(current_user)
-#           end
-#         else
-#           invalid_password_error
-#         end
-#       end
-
-#       def confirm_password
-#         return 'You can not enter old password again' if @user.authenticate(params[:new_password])
-
-#         'Both Passwords Does Not Match' if params[:new_password] != params[:confirm_password]
-#       end
-
-#       def update_password
-#         if @user.update(password: params[:new_password])
-#           render json: { message: 'Password Update Successfully' }, status: :ok
-#         else
-#           error_response(@user)
-#         end
-#       end
-
-#     end
-#   end
-# end
